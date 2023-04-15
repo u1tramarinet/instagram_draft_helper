@@ -10,8 +10,15 @@ class Record extends Group {
 
   @override
   String getText() {
-    // TODO: implement getText
-    throw UnimplementedError();
+    return '${date.year}-001(week${_getWeekNumber(date).toString().padLeft(3, '0')}-1)';
+  }
+
+  int _getWeekNumber(DateTime date) {
+    int days = date.day;
+    for (int i = 1; i <= date.month - 1; i++) {
+      days += DateTime(date.year, i + 1, 0).day;
+    }
+    return days ~/ 7 + 1;
   }
 }
 

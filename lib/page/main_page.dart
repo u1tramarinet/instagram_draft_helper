@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:instagram_draft_helper/model/group/comment.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:instagram_draft_helper/model/part/category.dart';
+import 'package:instagram_draft_helper/model/part/keyword.dart';
+import 'package:instagram_draft_helper/model/part/product.dart';
+import 'package:instagram_draft_helper/state/main_state.dart';
 import 'input_modal_bottom_sheet.dart';
 
-class MainPage extends StatefulWidget {
+class MainPage extends ConsumerStatefulWidget {
   const MainPage({super.key});
 
   @override
-  State<MainPage> createState() => _MainPageState();
+  MainPageState createState() => MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
-  String inputText = '';
-  String text = '';
-  Comment comment = Comment();
-
+class MainPageState extends ConsumerState<MainPage> {
   @override
   Widget build(BuildContext context) {
+    MainStateNotifier notifier = ref.read(mainStateProvider.notifier);
+    MainState state = ref.watch(mainStateProvider);
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.cyan.shade50,
@@ -30,7 +33,7 @@ class _MainPageState extends State<MainPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Card(
-                child: _result(text: text),
+                child: _result(text: state.result),
               ),
               Flexible(
                 child: SingleChildScrollView(
@@ -39,44 +42,30 @@ class _MainPageState extends State<MainPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     mainAxisSize: MainAxisSize.max,
                     children: [
-                      _title('コメント', inputText.length),
+                      _title('コメント', state.comment.getCount()),
                       _content(
                         child: _input(
-                          text: inputText,
+                          text: state.comment.getText(),
                           onTap: () {
                             showInputModalBottomSheet(
                                     context: context,
                                     title: 'コメント',
-                                    before: inputText)
-                                .then((after) => _updateComment(after));
+                                    before: state.comment.getText())
+                                .then((after) => notifier.updateComment(after));
                           },
                         ),
                       ),
                       _divider(),
-                      _title('ハッシュタグ', 3),
+                      _title('トピック', state.keywords.getCount()),
                       _content(
                         child: _wrap(
                           children: [
-                            _chip(
-                              primary: '夜景',
-                              onDeleted: () {},
-                            ),
-                            _chip(
-                              primary: '夜',
-                              onDeleted: () {},
-                            ),
-                            _chip(
-                              primary: '風景撮影',
-                              onDeleted: () {},
-                            ),
-                            _chip(
-                              primary: 'スタバ',
-                              onDeleted: () {},
-                            ),
-                            _chip(
-                              primary: 'ラーメン',
-                              onDeleted: () {},
-                            ),
+                            for (Keyword topic in state.keywords.getAll()) ...{
+                              _chip(
+                                primary: topic.name,
+                                onDeleted: () => notifier.deleteTopic(topic),
+                              ),
+                            },
                             _addChip(
                               onPressed: () {},
                             ),
@@ -84,7 +73,7 @@ class _MainPageState extends State<MainPage> {
                         ),
                       ),
                       _divider(),
-                      _title('機材', 2),
+                      _title('機材', state.products.getAll().length),
                       _content(
                         child: Table(
                           columnWidths: const <int, TableColumnWidth>{
@@ -95,65 +84,59 @@ class _MainPageState extends State<MainPage> {
                           defaultVerticalAlignment:
                               TableCellVerticalAlignment.middle,
                           children: <TableRow>[
-                            TableRow(
-                              children: [
-                                const Text('カメラ'),
-                                const SizedBox(width: 5),
-                                _wrap(
-                                  children: [
-                                    _chip(
-                                      primary: 'Google Pixel 7 Pro',
-                                      secondary: 'Google Pixel / Google',
-                                      onDeleted: () {},
-                                    ),
-                                    _addChip(
-                                      onPressed: () {},
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            TableRow(
-                              children: [
-                                const Text('レンズ'),
-                                const SizedBox(width: 5),
-                                _wrap(
-                                  children: [
-                                    _addChip(
-                                      onPressed: () {},
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            TableRow(
-                              children: [
-                                const Text('エディタ'),
-                                const SizedBox(width: 5),
-                                _wrap(
-                                  children: [
-                                    _chip(
-                                      primary: 'Googleフォト',
-                                      secondary: 'Google',
-                                      onDeleted: () {},
-                                    ),
-                                    _addChip(
-                                      onPressed: () {},
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                            for (Category category
+                                in state.products.getCategories()) ...{
+                              TableRow(
+                                children: [
+                                  Text(category.name),
+                                  const SizedBox(width: 5),
+                                  _wrap(
+                                    children: [
+                                      for (Product product in state.products
+                                          .getProducts(category)) ...{
+                                        _chip(
+                                          primary: product.name,
+                                          secondary: (product.maker != null &&
+                                                  product.brand != null)
+                                              ? '${product.maker?.name} / ${product.brand?.name}'
+                                              : '${product.maker?.name}${product.brand?.name}',
+                                          onDeleted: () =>
+                                              notifier.deleteProduct(product),
+                                        ),
+                                      },
+                                      _addChip(
+                                        onPressed: () {},
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            },
                           ],
                         ),
                       ),
                       _divider(),
                       _title('投稿識別子'),
-                      _content(
-                          child: _input(
-                        text: '2023-XXX(weekX-X)',
-                        onTap: () {},
-                      ))
+                      Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          Flexible(
+                            child: _content(
+                              child: _input(
+                                text: state.record.getText(),
+                                onTap: () {},
+                              ),
+                            ),
+                          ),
+                          Visibility(
+                            visible: false,
+                            maintainSize: true,
+                            maintainState: true,
+                            maintainAnimation: true,
+                            child: _fabCopy(),
+                          ),
+                        ],
+                      )
                     ],
                   ),
                 ),
@@ -162,10 +145,9 @@ class _MainPageState extends State<MainPage> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.small(
-        child: const Icon(Icons.copy, color: Colors.white),
-        onPressed: () {},
-      ),
+      floatingActionButton:
+          _fabCopy(onPressed: () => onCopyPressed(context, state.result)),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -174,7 +156,7 @@ class _MainPageState extends State<MainPage> {
       padding: const EdgeInsets.all(5),
       child: Row(
         mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Flexible(
             flex: 1,
@@ -189,17 +171,26 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
           ),
-          const SizedBox(width: 5),
-          Flexible(
-            flex: 8,
-            child: Text(
-              text,
-              maxLines: null,
-              softWrap: true,
-              style: const TextStyle(fontSize: 12),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 9,
+            child: Visibility(
+              visible: text.isNotEmpty,
+              replacement: const Text(
+                'キャプションを入力...',
+                maxLines: null,
+                softWrap: true,
+                style: TextStyle(fontSize: 12),
+              ),
+              child: Text(
+                text,
+                maxLines: null,
+                softWrap: true,
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 10),
           const Flexible(
             flex: 1,
             child: AspectRatio(
@@ -217,7 +208,10 @@ class _MainPageState extends State<MainPage> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           if (badgeCount > 0) ...{
             const SizedBox(width: 5),
             Badge.count(count: badgeCount),
@@ -279,6 +273,7 @@ class _MainPageState extends State<MainPage> {
         ],
       ),
       onDeleted: onDeleted,
+      backgroundColor: Colors.white,
     );
   }
 
@@ -288,6 +283,7 @@ class _MainPageState extends State<MainPage> {
     return ActionChip(
       label: const Icon(Icons.add),
       onPressed: onPressed,
+      backgroundColor: Colors.white,
     );
   }
 
@@ -321,20 +317,26 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  void _updateComment(String text) {
-    setState(() {
-      comment.updateContent(text);
-      inputText = text;
-      this.text = inputText;
-      this.text += '\n';
-      this.text += '\n';
-      this.text += '#夜景 #nightsight \n';
-      this.text += '#夜 #night \n';
-      this.text += '#風景撮影 #landscapephotography \n';
-      this.text += '#スタバ #スターバックス #starbucks \n';
-      this.text += '#ラーメン #ramen \n';
-      this.text += '#googlepixel7pro \n';
-      this.text += '#googlepixel #teampixel #madebygoogle #pixelで撮影 \n';
-    });
+  Widget _fabCopy({Function()? onPressed}) {
+    return FloatingActionButton.extended(
+      backgroundColor: Colors.indigo,
+      foregroundColor: Colors.white,
+      onPressed: onPressed,
+      icon: const Icon(Icons.copy, color: Colors.white),
+      label: const Text('コピー'),
+    );
+  }
+
+  Future<void> onCopyPressed(BuildContext context, String text) async {
+    await copy(text).then((value) => showSnackBar(context, 'コピーしました'));
+  }
+
+  Future<void> copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+  }
+
+  void showSnackBar(BuildContext context, String text) {
+    final snackBar = SnackBar(content: Text(text));
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 }
